@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class GridHelper
 {
+    //generating width x height grid of tiles
     public static Tile[,] GenerateGrid(int width, int height, GameObject tilePrefab)
     {
         var grid = new Tile[width, height];
@@ -21,11 +22,13 @@ public class GridHelper
         return grid;
     }
 
+    //convert world position to grid indexes
     public static Vector2Int CoordToGrid(Vector3 position)
     {
         return new Vector2Int(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.z));
     }
-
+    
+    //convert grid indexes to snaped world position
     public static Vector3 GridToCoord(Vector2Int cell)
     {
         return new Vector3(cell.x + 0.5f, 0, cell.y + 0.5f);

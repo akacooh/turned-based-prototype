@@ -406,7 +406,7 @@ GameObject:
   - component: {fileID: 1205542693}
   - component: {fileID: 1205542692}
   m_Layer: 0
-  m_Name: Player
+  m_Name: PlayerMelee
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -421,11 +421,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1205542691}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f0a8e0b177622dd4eb209ed3fabfede3, type: 3}
+  m_Script: {fileID: 11500000, guid: 74f12aaf1ae005045886946f6cdc5841, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  attackRange: 1
   speed: 4
   health: 0
+  strength: 10
 --- !u!4 &1205542693
 Transform:
   m_ObjectHideFlags: 0
@@ -434,7 +436,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1205542691}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.5, y: 0, z: 0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 637726729}
@@ -470,6 +472,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea6cf0dc7a499f94e83efd0daea3413f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  tileNormal: {fileID: 2100000, guid: f70a030fb293c304b97406c91ef5af59, type: 2}
+  tileMovement: {fileID: 2100000, guid: 4cb5f694369220a47917d3c749bd7ed6, type: 2}
+  tileAttack: {fileID: 2100000, guid: 219a91fc231a3be4c97167876bb5f40a, type: 2}
   gridHeight: 10
   gridWidth: 20
   tilePrefab: {fileID: 1475505690781746482, guid: 26e696c0f673a114d8aaa4b6933108b2, type: 3}
@@ -504,6 +509,14 @@ PrefabInstance:
     - target: {fileID: 1266595343755636970, guid: 9edf477705d1215458dd76336e5ae85e, type: 3}
       propertyPath: m_Name
       value: Dummy
+      objectReference: {fileID: 0}
+    - target: {fileID: 1266595343755636970, guid: 9edf477705d1215458dd76336e5ae85e, type: 3}
+      propertyPath: m_TagString
+      value: Enemy
+      objectReference: {fileID: 0}
+    - target: {fileID: 3141953319509418204, guid: 9edf477705d1215458dd76336e5ae85e, type: 3}
+      propertyPath: health
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 3998852638254361980, guid: 9edf477705d1215458dd76336e5ae85e, type: 3}
       propertyPath: m_RootOrder
