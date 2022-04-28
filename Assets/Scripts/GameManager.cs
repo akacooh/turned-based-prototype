@@ -7,17 +7,21 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager instance { get; private set; } 
 
-    private List<Unit> unitsList;
-    private Unit selectedUnit;
+    public List<Unit> unitsList { get; private set; }
+    private int selectedUnit;
     private bool isMoving, isAttacking;
 
     [SerializeField] private Material tileNormal, tileMovement, tileAttack;
+    private Dictionary<TileMat, Material> matDict;
+    [SerializeField] private LayerMask layerMask;
 
     public Tile[,] grid;
+    private List<MeshRenderer> changedTilesRenderers;
     public int gridHeight;
     public int gridWidth;
     [SerializeField] private GameObject tilePrefab;
     public GameObject dummy;
+    public UnityEvent OrderChanged;
     
 
     [SerializeField] private Camera mainCamera;
@@ -36,22 +40,50 @@ public class GameManager : MonoBehaviour
 
     private void Start() 
     {
+        matDict = new Dictionary<TileMat, Material>();
+        changedTilesRenderers = new List<MeshRenderer>();
+        matDict[TileMat.attack] = tileAttack;
+        matDict[TileMat.normal] = tileNormal;
+        matDict[TileMat.move] = tileMovement;
+
         unitsList = new List<Unit>();
-        unitsList.Add(GameObject.FindWithTag("Player").GetComponentInParent<Unit>());
-        selectedUnit = unitsList[0];
+        var units = GameObject.FindGameObjectsWithTag("Player");
+
+
+        selectedUnit = 0;
 
         grid = GridHelper.GenerateGrid(gridWidth, gridHeight, tilePrefab);
         dummy.transform.position = GridHelper.GridToCoord(new Vector2Int(10, 4));
         grid[10, 4].isOccupied = true;
         grid[10, 4].occupiedBy = dummy.GetComponent<Unit>();
 
+        int x = 0,  y = 0; //test
+        foreach (var unit in units)
+        {
+            var unitComponent = unit.GetComponentInParent<Unit>();
+            unitsList.Add(unitComponent);
+            //test deployment
+            unit.transform.position = GridHelper.GridToCoord(new Vector2Int(x, y));
+            grid[x, y].isOccupied = true;
+            grid[x, y].occupiedBy = unitComponent;
+            x++;
+            y++;
+        }
     }
 
     private void Update() 
     {
         if (Input.GetKeyDown(KeyCode.M))
         {
-            GetAdjacentTiles(GridHelper.CoordToGrid(selectedUnit.transform.position), selectedUnit.speed, ShowMovementRange);
+            ClearTiles();
+            Vector2Int currentPos = GridHelper.CoordToGrid(unitsList[selectedUnit].transform.position);
+            Dictionary<Vector2Int, Vector2Int?> reachableTiles = GridHelper.GetReachableTiles(grid, currentPos, unitsList[selectedUnit].speed);
+            List<Vector2Int> tiles = new List<Vector2Int>();
+            foreach (var key in reachableTiles.Keys)
+            {
+                tiles.Add(key);
+            }
+            DrawTiles(tiles, TileMat.move);
             isMoving = true;
         }
         if ((isMoving || isAttacking) && Input.GetMouseButtonDown(0))
@@ -60,7 +92,10 @@ public class GameManager : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.A))
         {
-            GetAdjacentTiles(GridHelper.CoordToGrid(selectedUnit.transform.position), selectedUnit.attackRange, ShowAttackRange);
+            ClearTiles();
+            Vector2Int currentPos = GridHelper.CoordToGrid(unitsList[selectedUnit].transform.position);
+            List<Vector2Int> tiles = GridHelper.GetTilesInRange(grid, currentPos, unitsList[selectedUnit].attackRange);
+            DrawTiles(tiles, TileMat.attack);
             isAttacking = true;
         }
     }
@@ -70,37 +105,51 @@ public class GameManager : MonoBehaviour
         var ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit))
+        if (Physics.Raycast(ray, out hit, 100f,layerMask))
         {
             var tileHit = GridHelper.CoordToGrid(hit.point);
-            Vector2Int distance = tileHit - GridHelper.CoordToGrid(unitsList[0].transform.position);
+            var tile = new Vector2Int(tileHit.x, tileHit.y);
+
             if (isMoving)
             {
-                bool canMove = distance.magnitude <= unitsList[0].speed;
-                if (canMove)
+                Vector2Int currentPos = GridHelper.CoordToGrid(unitsList[selectedUnit].transform.position);
+                Dictionary<Vector2Int, Vector2Int?> reachableTiles = GridHelper.GetReachableTiles(grid, currentPos, unitsList[selectedUnit].speed);
+                if (reachableTiles.ContainsKey(tile))
                 {
-                    GetAdjacentTiles(GridHelper.CoordToGrid(selectedUnit.transform.position), selectedUnit.speed, ClearTiles);
-                    unitsList[0].Move(hit.point);
+                    grid[currentPos.x, currentPos.y].isOccupied = false;
+                    grid[currentPos.x, currentPos.y].occupiedBy = null;
+                    unitsList[selectedUnit].Move(hit.point);
+                    unitsList[selectedUnit].actionPoints -= 1;
+                    grid[tile.x, tile.y].isOccupied = true;
+                    grid[tile.x, tile.y].occupiedBy = unitsList[selectedUnit];
                     isMoving = false;
+                    ClearTiles();
                 }
             }
             else if (isAttacking)
             {
-                var tile = grid[tileHit.x, tileHit.y];
-                bool canAttack = (distance.magnitude <= unitsList[0].attackRange) && tile.isOccupied;
-                if (canAttack && tile.occupiedBy.transform.CompareTag("Enemy"))
+                
+                Vector2Int currentPos = GridHelper.CoordToGrid(unitsList[selectedUnit].transform.position);
+                List<Vector2Int> reachableTiles = GridHelper.GetTilesInRange(grid, currentPos, unitsList[selectedUnit].attackRange);
+                if (reachableTiles.Contains(tile) && grid[tile.x, tile.y].occupiedBy.CompareTag("Enemy"))
                 {
                     Debug.Log("hit");
-                    GetAdjacentTiles(GridHelper.CoordToGrid(selectedUnit.transform.position), selectedUnit.speed, ClearTiles);
-                    unitsList[0].Attack(tile.occupiedBy);
+                    unitsList[selectedUnit].Attack(grid[tile.x, tile.y].occupiedBy);
+                    unitsList[selectedUnit].actionPoints -= 2;
                     isAttacking = false;
+                    ClearTiles();
                 }
+            }
+
+            if (unitsList[selectedUnit].actionPoints <= 0)
+            {
+                EndTurn();
             }
         }
     }
 
     //changes color of tiles at <=radius from tile on startPos. undo if clearFlag set to true
-    private void GetAdjacentTiles(Vector2Int startPos, int radius, UnityAction<MeshRenderer> Action)
+/*     private void GetAdjacentTiles(Vector2Int startPos, int radius, TileMat tileMat)
     {
         for (int i = -radius; i <= radius; i++)
         {
@@ -115,20 +164,43 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+    } */
+
+    private void ClearTiles()
+    {
+        foreach (MeshRenderer tile in changedTilesRenderers)
+        {
+            tile.material = matDict[TileMat.normal];
+        }
+        changedTilesRenderers.Clear();
     }
 
-    private void ShowMovementRange(MeshRenderer renderer)
+    private void DrawTiles(List<Vector2Int> coordsList, TileMat tileMat)
     {
-        renderer.material = tileMovement;
+        foreach (Vector2Int coords in coordsList)
+        {
+            MeshRenderer renderer = grid[coords.x, coords.y].GetComponent<MeshRenderer>();
+            changedTilesRenderers.Add(renderer);
+            renderer.material = matDict[tileMat];
+        }
     }
 
-    private void ShowAttackRange(MeshRenderer renderer)
+    public void EndTurn()
     {
-        renderer.material = tileAttack;
+        ClearTiles();
+        unitsList[selectedUnit].actionPoints = 2;
+        selectedUnit++;
+        OrderChanged.Invoke();
+        if (selectedUnit == unitsList.Count)
+        {
+            selectedUnit = 0;
+        }
     }
-    
-    private void ClearTiles(MeshRenderer renderer)
-    {
-        renderer.material = tileNormal;
-    }
+}
+
+enum TileMat
+{
+    attack,
+    normal,
+    move
 }
